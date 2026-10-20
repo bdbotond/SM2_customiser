@@ -951,31 +951,47 @@
             }
         }
 
+        // Paint layer: premultiplied paint color + coverage mask per vertex.
+        // Final color = slotColor * (1 - mask) + paintColor, so paint shows its true color,
+        // unpainted meshes sharing the slot material are untouched, and no black flash.
+        function makePaintable(mat) {
+            if (!mat || mat.userData.paintable) return mat;
+            mat.userData.paintable = true;
+            mat.onBeforeCompile = function (shader) {
+                shader.vertexShader = shader.vertexShader
+                    .replace('#include <common>', '#include <common>\nattribute vec3 paintColor;\nattribute float paintMask;\nvarying vec3 vPaintColor;\nvarying float vPaintMask;')
+                    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintColor = paintColor;\nvPaintMask = paintMask;');
+                shader.fragmentShader = shader.fragmentShader
+                    .replace('#include <common>', '#include <common>\nvarying vec3 vPaintColor;\nvarying float vPaintMask;')
+                    .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = diffuseColor.rgb * (1.0 - vPaintMask) + vPaintColor;');
+            };
+            mat.customProgramCacheKey = function () { return 'paintmask'; };
+            mat.needsUpdate = true;
+            return mat;
+        }
+
         function ensureVertexColors(mesh) {
-            if (!mesh || !mesh.geometry) return false;
+            if (!mesh || !mesh.geometry || !mesh.material || !mesh.material.userData.paintable) return false;
             let geom = mesh.geometry;
             if (geom.index !== null) {
                 mesh.geometry = geom.toNonIndexed();
                 geom = mesh.geometry;
             }
-            if (!geom.attributes.color) {
-                const count = geom.attributes.position.count;
-                const colors = new Float32Array(count * 3);
-                colors.fill(1.0); // Default white
-                geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            }
-            if (mesh.material && !mesh.material.vertexColors) {
-                mesh.material.vertexColors = true;
-                mesh.material.needsUpdate = true;
+            const count = geom.attributes.position.count;
+            if (!geom.attributes.paintColor) {
+                geom.setAttribute('paintColor', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+                geom.setAttribute('paintMask', new THREE.BufferAttribute(new Float32Array(count), 1));
             }
             return true;
         }
 
-        function applySoftBrush(mesh, point, radius, softness, r, g, b) {
+        // targetMask: 1 = paint, 0 = erase
+        function applySoftBrush(mesh, point, radius, softness, r, g, b, targetMask) {
             if (!ensureVertexColors(mesh)) return;
             const geom = mesh.geometry;
             const pos = geom.attributes.position;
-            const col = geom.attributes.color;
+            const col = geom.attributes.paintColor;
+            const msk = geom.attributes.paintMask;
             const count = pos.count;
 
             const localHit = mesh.worldToLocal(point.clone());
@@ -983,6 +999,7 @@
             const rSq = radius * radius;
             const posArr = pos.array;
             const colArr = col.array;
+            const mskArr = msk.array;
 
             let modified = false;
             for (let i = 0; i < count; i++) {
@@ -997,16 +1014,20 @@
                     let factor = 1.0 - (dist / radius);
                     factor = Math.pow(factor, 1.0 + (1.0 - softness) * 2.5);
                     factor = Math.min(Math.max(factor, 0.0), 1.0);
+                    const keep = 1.0 - factor;
+                    const m = targetMask;
 
-                    colArr[i3] = colArr[i3] + (r - colArr[i3]) * factor;
-                    colArr[i3 + 1] = colArr[i3 + 1] + (g - colArr[i3 + 1]) * factor;
-                    colArr[i3 + 2] = colArr[i3 + 2] + (b - colArr[i3 + 2]) * factor;
+                    colArr[i3] = colArr[i3] * keep + r * m * factor;
+                    colArr[i3 + 1] = colArr[i3 + 1] * keep + g * m * factor;
+                    colArr[i3 + 2] = colArr[i3 + 2] * keep + b * m * factor;
+                    mskArr[i] = mskArr[i] * keep + m * factor;
                     modified = true;
                 }
             }
 
             if (modified) {
                 col.needsUpdate = true;
+                msk.needsUpdate = true;
             }
         }
 
@@ -1134,31 +1155,31 @@
             }
 
             // Fill all vertex colors in visited region
-            const colors = geom.attributes.color.array;
+            const colors = geom.attributes.paintColor.array;
+            const masks = geom.attributes.paintMask.array;
             for (let k = 0; k < inRegion.length; k++) {
                 const t = inRegion[k];
                 const base = t * 9;
-                colors[base] = fillR;
-                colors[base + 1] = fillG;
-                colors[base + 2] = fillB;
-                colors[base + 3] = fillR;
-                colors[base + 4] = fillG;
-                colors[base + 5] = fillB;
-                colors[base + 6] = fillR;
-                colors[base + 7] = fillG;
-                colors[base + 8] = fillB;
+                for (let v = 0; v < 3; v++) {
+                    colors[base + v * 3] = fillR;
+                    colors[base + v * 3 + 1] = fillG;
+                    colors[base + v * 3 + 2] = fillB;
+                    masks[t * 3 + v] = 1.0;
+                }
             }
 
-            geom.attributes.color.needsUpdate = true;
+            geom.attributes.paintColor.needsUpdate = true;
+            geom.attributes.paintMask.needsUpdate = true;
         }
 
         window.clearAllPaint = function () {
             armorMeshMap.forEach(group => {
                 group.traverse(child => {
-                    if (child.isMesh && child.geometry && child.geometry.attributes.color) {
-                        const arr = child.geometry.attributes.color.array;
-                        arr.fill(1.0);
-                        child.geometry.attributes.color.needsUpdate = true;
+                    if (child.isMesh && child.geometry && child.geometry.attributes.paintColor) {
+                        child.geometry.attributes.paintColor.array.fill(0);
+                        child.geometry.attributes.paintMask.array.fill(0);
+                        child.geometry.attributes.paintColor.needsUpdate = true;
+                        child.geometry.attributes.paintMask.needsUpdate = true;
                     }
                 });
             });
@@ -1196,9 +1217,9 @@
                     if (hit.object && hit.object.isMesh && hit.object.geometry) {
                         if (state.paintTool === 'brush') {
                             applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness,
-                                           state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b);
+                                           state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b, 1.0);
                         } else if (state.paintTool === 'eraser') {
-                            applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness, 1.0, 1.0, 1.0);
+                            applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness, 0.0, 0.0, 0.0, 0.0);
                         } else if (state.paintTool === 'fill') {
                             if (hit.faceIndex !== undefined) {
                                 floodFillCreaseAngle(hit.object, hit.faceIndex, state.creaseAngle,
@@ -1225,9 +1246,9 @@
                 if (hit.object && hit.object.isMesh && hit.object.geometry) {
                     if (state.paintTool === 'brush') {
                         applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness,
-                                       state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b);
+                                       state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b, 1.0);
                     } else if (state.paintTool === 'eraser') {
-                        applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness, 1.0, 1.0, 1.0);
+                        applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness, 0.0, 0.0, 0.0, 0.0);
                     }
                     break;
                 }
@@ -1422,22 +1443,11 @@
                     if (child.geometry && !child.geometry.attributes.normal) {
                         child.geometry.computeVertexNormals();
                     }
+                    // Every armor part shares its slot material, so one paint color looks identical everywhere.
+                    // Only visor lenses keep their glowing material.
                     const mName = (child.name || '').toLowerCase();
                     if (mName.includes('lens') || mName.includes('glass') || mName.includes('eye')) {
                         child.material = pbrMaterials.lenses;
-                    } else if (mName.includes('badge') || mName.includes('aquila') || mName.includes('trim') || 
-                               mName.includes('skull') || mName.includes('gold') || mName.includes('crux') ||
-                               mName.includes('cap_01') || mName.includes('plate_01') || mName.includes('decal')) {
-                        child.material = pbrMaterials.trim;
-                    } else if (mName.includes('neck') || mName.includes('joint') || mName.includes('undersuit') || 
-                               mName.includes('tube') || mName.includes('cable') || mName.includes('hose') ||
-                               mName.includes('torso_base')) {
-                        child.material = pbrMaterials.joints;
-                    } else if (mName.includes('bag') || mName.includes('pouch') || mName.includes('leather')) {
-                        child.material = pbrMaterials.leather;
-                    } else if (mName.includes('cloth') || mName.includes('tabard') || mName.includes('seal') || 
-                               mName.includes('parchment')) {
-                        child.material = pbrMaterials.cloth;
                     } else {
                         child.material = getOrCreateSlotMaterial(normSlot);
                     }
@@ -1712,7 +1722,7 @@
             if (slotMaterials.has(normSlot)) {
                 return slotMaterials.get(normSlot);
             }
-            const mat = pbrMaterials.primary.clone();
+            const mat = makePaintable(pbrMaterials.primary.clone());
             slotMaterials.set(normSlot, mat);
             if (slotOverrides.has(normSlot)) {
                 const ovr = slotOverrides.get(normSlot);
