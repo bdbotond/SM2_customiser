@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astartes 3D Armouring Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0A0C10;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #E0E4EC;
+        }
+        #viewport {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: relative;
+        }
+        /* Top-Left Segmented Camera Pill Bar */
+        #camera-nav {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: flex;
+            align-items: center;
+            background: rgba(14, 17, 24, 0.82);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 7px;
+            padding: 3px;
+            gap: 2px;
+            z-index: 10;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+        }
+        .btn-nav {
+            background: transparent;
+            color: #A6B4C9;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 11px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .btn-nav:hover {
+            color: #FFFFFF;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .btn-nav.active {
+            color: #0A0C10;
+            background: #D4AF37;
+            font-weight: 700;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.35);
+        }
+
+        /* Bottom-Center Floating Tool Dock */
+        #tool-dock {
+            position: absolute;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(14, 17, 24, 0.85);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 4px 6px;
+            z-index: 10;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+        }
+        .btn-tool {
+            background: rgba(255, 255, 255, 0.04);
+            color: #BAC7D9;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-tool:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #E5B638;
+            border-color: rgba(229, 182, 56, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-tool.active {
+            background: #2E7D32;
+            color: #FFFFFF;
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+        }
+
+        /* Selected Slot Badge */
+        #selected-slot-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(14, 18, 26, 0.88);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #E5B638;
+            letter-spacing: 0.6px;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #selected-slot-badge::before {
+            content: '';
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #D4AF37;
+            box-shadow: 0 0 6px #D4AF37;
+        }
+
+        /* Bottom Hint Box */
+        #hint-box {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            background: rgba(10, 12, 16, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 5px;
+            padding: 4px 10px;
+            font-size: 10px;
+            color: #7B8798;
+            pointer-events: none;
+            backdrop-filter: blur(6px);
+        }
+        /* Solo Mode Notification */
+        #solo-banner {
+            position: absolute;
+            top: 50px;
+            right: 12px;
+            background: rgba(180, 40, 20, 0.88);
+            color: #FFF;
+            border: 1px solid #FF5533;
+            border-radius: 5px;
+            padding: 4px 10px;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            display: none;
+            box-shadow: 0 0 10px rgba(255, 80, 50, 0.4);
+            pointer-events: none;
+            backdrop-filter: blur(6px);
+        }
+
+        /* Paint Studio Floating Dock */
+        #paint-toolbar {
+            position: absolute;
+            top: 48px;
+            left: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background: rgba(13, 18, 27, 0.90);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 6px;
+            z-index: 10;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+            max-width: 440px;
+        }
+        .paint-tool-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-paint-tool {
+            background: rgba(255, 255, 255, 0.05);
+            color: #C0CCE0;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-paint-tool:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+        }
+        .btn-paint-tool.active {
+            background: #FF8C00;
+            color: #FFFFFF;
+            border-color: #FFA333;
+            box-shadow: 0 0 10px rgba(255, 140, 0, 0.45);
+            font-weight: 700;
+        }
+        .paint-controls-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding-top: 5px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .paint-slider-box {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: #A0B0C8;
+        }
+        .paint-slider-box input[type="range"] {
+            width: 60px;
+            cursor: pointer;
+            accent-color: #FF8C00;
+        }
+        .paint-slider-box span {
+            font-size: 9.5px;
+            font-weight: 600;
+            color: #E2E8F0;
+            min-width: 32px;
+        }
+        #paint-color-picker {
+            -webkit-appearance: none;
+            border: 1px solid #FF8C00;
+            border-radius: 4px;
+            width: 24px;
+            height: 22px;
+            padding: 0;
+            cursor: pointer;
+            background: transparent;
+        }
+        #paint-color-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        #paint-color-picker::-webkit-color-swatch {
+            border: none;
+            border-radius: 3px;
+        }
+        .btn-paint-action {
+            background: rgba(255, 60, 40, 0.15);
+            color: #FF8877;
+            border: 1px solid rgba(255, 80, 60, 0.35);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-paint-action:hover {
+            background: rgba(255, 60, 40, 0.35);
+            color: #FFFFFF;
+        }
+
+        /* Floating Custom Model Micro-Transform HUD */
+        #custom-transform-panel {
+            position: absolute;
+            top: 50px;
+            right: 12px;
+            background: rgba(14, 18, 26, 0.92);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 8px;
+            padding: 10px 12px;
+            width: 220px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: #E2E8F0;
+            font-size: 11px;
+        }
+        .custom-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: #D4AF37;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            padding-bottom: 4px;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+        .btn-panel-close {
+            background: transparent;
+            border: none;
+            color: #8899AA;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .btn-panel-close:hover { color: #FFF; }
+        .custom-panel-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .custom-panel-row label {
+            width: 50px;
+            font-size: 10px;
+            color: #94A3B8;
+        }
+        .custom-panel-row input[type="range"] {
+            flex: 1;
+            width: 80px;
+            accent-color: #D4AF37;
+            cursor: pointer;
+        }
+        .custom-panel-row select {
+            flex: 1;
+            background: #1A2230;
+            color: #E2E8F0;
+            border: 1px solid #334460;
+            border-radius: 4px;
+            font-size: 10px;
+            padding: 2px 4px;
+        }
+        .custom-panel-row span {
+            width: 38px;
+            text-align: right;
+            font-size: 9.5px;
+            color: #CBD5E1;
+            font-family: monospace;
+        }
+        .custom-panel-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 6px;
+        }
+        .btn-custom-action {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #E2E8F0;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-custom-action:hover { background: rgba(255, 255, 255, 0.18); }
+        .btn-custom-action.btn-danger {
+            background: rgba(230, 50, 40, 0.2);
+            border-color: rgba(230, 50, 40, 0.5);
+            color: #FF8877;
+        }
+        .btn-custom-action.btn-danger:hover {
+            background: rgba(230, 50, 40, 0.4);
+            color: #FFF;
+        }
+    </style>
+    <script src="three.min.js"></script>
+    <script src="OrbitControls.js"></script>
+    <script src="OBJLoader.js"></script>
+    <script src="STLLoader.js"></script>
+    <script src="GLTFLoader.js"></script>
+</head>
+<body>
+    <!-- Top-Left Segmented Camera Pill Bar -->
+    <div id="camera-nav">
+        <button class="btn-nav active" onclick="focusCamera('full')">Full Body</button>
+        <button class="btn-nav" onclick="focusCamera('helmet')">Helmet</button>
+        <button class="btn-nav" onclick="focusCamera('chest')">Cuirass</button>
+        <button class="btn-nav" onclick="focusCamera('left_pauldron')">L. Shoulder</button>
+        <button class="btn-nav" onclick="focusCamera('right_pauldron')">R. Shoulder</button>
+        <button class="btn-nav" onclick="focusCamera('backpack')">Backpack</button>
+        <button class="btn-nav" onclick="focusCamera('arms')">Arms</button>
+        <button class="btn-nav" onclick="focusCamera('legs')">Legs</button>
+        <button class="btn-nav" onclick="resetCamera()">Reset</button>
+    </div>
+
+    <!-- Paint Studio Floating Dock -->
+    <div id="paint-toolbar">
+        <div class="paint-tool-group">
+            <button id="tool-orbit" class="btn-paint-tool active" onclick="setPaintTool('orbit')" title="Camera View &amp; Navigation">👁 Orbit</button>
+            <button id="tool-brush" class="btn-paint-tool" onclick="setPaintTool('brush')" title="Soft Vertex Paint Brush">🖌 Brush</button>
+            <button id="tool-fill" class="btn-paint-tool" onclick="setPaintTool('fill')" title="Crease-Angle Flood Fill">🪣 Fill</button>
+            <button id="tool-eraser" class="btn-paint-tool" onclick="setPaintTool('eraser')" title="Erase Paint">🧼 Erase</button>
+        </div>
+        <div id="paint-controls" class="paint-controls-group" style="display: none;">
+            <div class="paint-slider-box">
+                <label>Radius:</label>
+                <input type="range" id="brush-radius" min="0.02" max="0.35" step="0.01" value="0.08" oninput="updateBrushParams()">
+                <span id="brush-radius-val">0.08m</span>
+            </div>
+            <div class="paint-slider-box">
+                <label>Softness:</label>
+                <input type="range" id="brush-softness" min="0" max="1" step="0.05" value="0.6" oninput="updateBrushParams()">
+                <span id="brush-softness-val">60%</span>
+            </div>
+            <div class="paint-slider-box">
+                <label>Crease:</label>
+                <input type="range" id="crease-angle" min="10" max="75" step="1" value="35" oninput="updateBrushParams()">
+                <span id="crease-angle-val">35°</span>
+            </div>
+            <input type="color" id="paint-color-picker" value="#D4AF37" onchange="onPaintColorPickerChange(this.value)" title="Active Paint Swatch">
+            <button class="btn-paint-action" onclick="clearAllPaint()" title="Clear all painted vertex colors">✕ Clear Paint</button>
+        </div>
+    </div>
+
+    <!-- Bottom-Center Floating Tool Dock -->
+    <div id="tool-dock">
+        <button id="btn-turntable" class="btn-tool" onclick="toggleTurntable()">⟳ Turntable</button>
+        <button id="btn-wireframe" class="btn-tool" onclick="toggleWireframe()">◬ Wireframe</button>
+        <button id="btn-solo" class="btn-tool" onclick="toggleSoloPart()">◎ Isolate</button>
+        <button id="btn-lighting" class="btn-tool" onclick="toggleLightingMode()">☼ Forge Light</button>
+        <button id="btn-snapshot" class="btn-tool" onclick="takeSnapshot()">📷 Snapshot</button>
+    </div>
+
+    <div id="selected-slot-badge">Full Armor</div>
+    <div id="solo-banner">ISOLATE MODE ACTIVE</div>
+
+    <!-- Floating Custom Model Micro-Transform HUD -->
+    <div id="custom-transform-panel" style="display: none;">
+        <div class="custom-panel-header">
+            <span>⚙️ MESH TRANSFORM</span>
+            <button class="btn-panel-close" onclick="toggleTransformPanel()">✕</button>
+        </div>
+        <div class="custom-panel-row">
+            <label>Slot:</label>
+            <select id="custom-slot-select" onchange="onCustomSlotChange(this.value)">
+                <option value="HELMET">Helmet</option>
+                <option value="CHEST">Cuirass / Torso</option>
+                <option value="BACKPACK">Backpack / Power Pack</option>
+                <option value="LEFT_PAULDRON">Left Shoulder</option>
+                <option value="RIGHT_PAULDRON">Right Shoulder</option>
+                <option value="LEFT_GAUNTLET">Left Gauntlet</option>
+                <option value="RIGHT_GAUNTLET">Right Gauntlet</option>
+                <option value="LEFT_GREAVE">Left Greave / Leg</option>
+                <option value="RIGHT_GREAVE">Right Greave / Leg</option>
+            </select>
+        </div>
+        <div class="custom-panel-row">
+            <label>Scale:</label>
+            <input type="range" id="custom-scale" min="0.2" max="3.0" step="0.05" value="1.0" oninput="updateCustomTransform()">
+            <span id="custom-scale-val">1.00x</span>
+        </div>
+        <div class="custom-panel-row">
+            <label>Offset X:</label>
+            <input type="range" id="custom-offset-x" min="-0.6" max="0.6" step="0.01" value="0.0" oninput="updateCustomTransform()">
+            <span id="custom-offset-x-val">0.00m</span>
+        </div>
+        <div class="custom-panel-row">
+            <label>Offset Y:</label>
+            <input type="range" id="custom-offset-y" min="-0.6" max="0.6" step="0.01" value="0.0" oninput="updateCustomTransform()">
+            <span id="custom-offset-y-val">0.00m</span>
+        </div>
+        <div class="custom-panel-row">
+            <label>Offset Z:</label>
+            <input type="range" id="custom-offset-z" min="-0.6" max="0.6" step="0.01" value="0.0" oninput="updateCustomTransform()">
+            <span id="custom-offset-z-val">0.00m</span>
+        </div>
+        <div class="custom-panel-row">
+            <label>Yaw:</label>
+            <input type="range" id="custom-yaw" min="-180" max="180" step="5" value="0" oninput="updateCustomTransform()">
+            <span id="custom-yaw-val">0°</span>
+        </div>
+        <div class="custom-panel-actions">
+            <button class="btn-custom-action" onclick="resetCustomTransform()">Reset</button>
+            <button class="btn-custom-action btn-danger" onclick="removeCurrentCustomMesh()">Remove</button>
+        </div>
+    </div>
+
+    <div id="hint-box">Left Drag: Orbit | Right Drag: Pan | Scroll: Zoom | Click part to select</div>
+
+    <div id="viewport"></div>
+
+    <script>
+        let scene, camera, renderer, controls, raycaster, mouse;
+        const armorMeshMap = new Map();
+        let selectedSlotName = 'FULL ARMOR';
+        let pbrMaterials = {};
+        let decalTextures = {};
+        let lights = {};
+
+        // Studio State
+        const state = {
+            primaryColor: 0x1A4B8C, // Vibrant Macragge Blue
+            secondaryColor: 0x1A4B8C,
+            trimColor: 0xD4AF37,    // Retributor Gold Trim
+            clothColor: 0xD8CEBA,   // Parchment / Cloth
+            lensesColor: 0xFF1818,  // Glowing Visor
+            jointColor: 0x242830,   // Graphite Under-armor
+            isMetallic: false,
+            metalness: 0.15,
+            roughness: 0.32,
+            currentSlot: 'FULL ARMOR',
+            isTurntable: false,
+            isWireframe: false,
+            isSolo: false,
+            lightingMode: 'forge', // 'forge' | 'studio'
+            paintTool: 'orbit',    // 'orbit' | 'brush' | 'fill' | 'eraser'
+            brushRadius: 0.08,     // Radius in meters
+            brushSoftness: 0.6,    // 0 = hard, 1 = maximum falloff
+            creaseAngle: 35,       // Max crease angle in degrees for flood fill
+            activePaintColor: new THREE.Color(0xD4AF37)
+        };
+
+        const slotMaterials = new Map();
+        const slotOverrides = new Map();
+        let isPainting = false;
+
+        function getDimensions() {
+            const container = document.getElementById('viewport');
+            const w = Math.max(container.clientWidth, window.innerWidth, 400);
+            const h = Math.max(container.clientHeight, window.innerHeight, 300);
+            return { width: w, height: h };
+        }
+
+        function init() {
+            const container = document.getElementById('viewport');
+            const dims = getDimensions();
+
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0A0C10);
+            scene.fog = new THREE.FogExp2(0x0A0C10, 0.075);
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(38, dims.width / dims.height, 0.05, 50);
+            camera.position.set(0, 0.95, 2.3);
+
+            // 3. Renderer with ACES Filmic Tone Mapping
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+            renderer.setSize(dims.width, dims.height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.05;
+            container.appendChild(renderer.domElement);
+
+            // 4. OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 0.68, 0);
+            controls.maxPolarAngle = Math.PI / 2 + 0.12;
+            controls.minDistance = 0.3;
+            controls.maxDistance = 5.5;
+
+            // 5. Lighting
+            setupLighting();
+
+            // 6. Ground Dais / Pedestal
+            setupGround();
+
+            // 7. Raycasting
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // 8. Materials
+            setupMaterials();
+
+            // 9. Build Modular Space Marine Root
+            buildSpaceMarine();
+
+            // 10. Event Listeners
+            const resizeObserver = new ResizeObserver(() => onWindowResize());
+            resizeObserver.observe(container);
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            renderer.domElement.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+
+            animate();
+
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage({ action: 'viewerReady' });
+            }
+        }
+
+        function setupLighting() {
+            // Ambient base
+            lights.ambient = new THREE.AmbientLight(0xEAEFFF, 0.55);
+            scene.add(lights.ambient);
+
+            // Key Warm Forge / Studio Directional Light
+            lights.key = new THREE.DirectionalLight(0xFFE8D0, 1.35);
+            lights.key.position.set(2.8, 4.2, 3.2);
+            lights.key.castShadow = true;
+            lights.key.shadow.mapSize.width = 2048;
+            lights.key.shadow.mapSize.height = 2048;
+            lights.key.shadow.bias = -0.0004;
+            scene.add(lights.key);
+
+            // Fill Cool Sky Directional Light
+            lights.fill = new THREE.DirectionalLight(0x8EA8D0, 0.75);
+            lights.fill.position.set(-3.2, 2.8, 1.8);
+            scene.add(lights.fill);
+
+            // High-Contrast Silhouette Rim Light
+            lights.rim = new THREE.DirectionalLight(0xFFD580, 1.15);
+            lights.rim.position.set(0.0, 3.8, -3.2);
+            scene.add(lights.rim);
+
+            // Subtle Under-Dais Ground Uplight
+            lights.ground = new THREE.PointLight(0x446699, 0.45, 6);
+            lights.ground.position.set(0, 0.15, 0);
+            scene.add(lights.ground);
+        }
+
+        function setupGround() {
+            // Dark Gothic Steel Dais
+            const daisGeo = new THREE.CylinderGeometry(1.35, 1.5, 0.16, 8);
+            const daisMat = new THREE.MeshStandardMaterial({
+                color: 0x141822,
+                metalness: 0.55,
+                roughness: 0.65
+            });
+            const dais = new THREE.Mesh(daisGeo, daisMat);
+            dais.position.y = -0.08;
+            dais.receiveShadow = true;
+            scene.add(dais);
+
+            // Gold Inlaid Ring
+            const ringGeo = new THREE.CylinderGeometry(1.37, 1.37, 0.02, 8);
+            const ringMat = new THREE.MeshStandardMaterial({
+                color: 0xD4AF37,
+                metalness: 0.88,
+                roughness: 0.22
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.y = 0.01;
+            scene.add(ring);
+
+            // Floor Shadow Receiver Plane
+            const planeGeo = new THREE.PlaneGeometry(16, 16);
+            const planeMat = new THREE.ShadowMaterial({ opacity: 0.45 });
+            const floor = new THREE.Mesh(planeGeo, planeMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -0.16;
+            floor.receiveShadow = true;
+            scene.add(floor);
+        }
+
+        function createMicroBumpTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.createImageData(128, 128);
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                const val = 128 + Math.floor((Math.random() - 0.5) * 28);
+                imgData.data[i] = val;
+                imgData.data[i + 1] = val;
+                imgData.data[i + 2] = val;
+                imgData.data[i + 3] = 255;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(16, 16);
+            return tex;
+        }
+
+        function setupMaterials() {
+            const microBump = createMicroBumpTexture();
+
+            pbrMaterials.primary = new THREE.MeshStandardMaterial({
+                color: state.primaryColor,
+                metalness: state.metalness,
+                roughness: state.roughness,
+                bumpMap: microBump,
+                bumpScale: 0.0006,
+                side: THREE.DoubleSide
+            });
+
+            pbrMaterials.secondary = new THREE.MeshStandardMaterial({
+                color: state.secondaryColor,
+                metalness: state.metalness,
+                roughness: state.roughness,
+                bumpMap: microBump,
+                bumpScale: 0.0006,
+                side: THREE.DoubleSide
+            });
+
+            pbrMaterials.trim = new THREE.MeshStandardMaterial({
+                color: state.trimColor,
+                metalness: 0.90,
+                roughness: 0.20,
+                side: THREE.DoubleSide
+            });
+
+            pbrMaterials.cloth = new THREE.MeshStandardMaterial({
+                color: state.clothColor,
+                metalness: 0.04,
+                roughness: 0.88,
+                side: THREE.DoubleSide
+            });
+
+            pbrMaterials.leather = new THREE.MeshStandardMaterial({
+                color: 0x36251A,
+                metalness: 0.08,
+                roughness: 0.78,
+                side: THREE.DoubleSide
+            });
+
+            pbrMaterials.lenses = new THREE.MeshStandardMaterial({
+                color: state.lensesColor,
+                emissive: state.lensesColor,
+                emissiveIntensity: 2.5,
+                metalness: 0.1,
+                roughness: 0.15,
+                side: THREE.DoubleSide
+            });
+
+            pbrMaterials.joints = new THREE.MeshStandardMaterial({
+                color: state.jointColor,
+                metalness: 0.52,
+                roughness: 0.62,
+                side: THREE.DoubleSide
+            });
+        }
+
+        function buildSpaceMarine() {
+            const root = new THREE.Group();
+            root.name = 'SpaceMarine';
+            // Metric coordinates: Space Marine base stands on ground pedestal (feet touch Y = 0.0)
+            root.scale.set(1.0, 1.0, 1.0);
+            root.position.y = 0.0;
+
+            const slots = [
+                'HELMET', 'CHEST', 'BACKPACK', 'LEFT_PAULDRON', 'RIGHT_PAULDRON',
+                'LEFT_GAUNTLET', 'RIGHT_GAUNTLET', 'LEFT_GREAVE', 'RIGHT_GREAVE',
+                'VANITY', 'CLOTH', 'COAT', 'HALO', 'ANTENNA', 'HELMET_LENSES'
+            ];
+
+            slots.forEach(slot => {
+                const group = new THREE.Group();
+                group.name = slot;
+                group.userData.slot = slot;
+
+                // Procedural proxy fallback for immediate rendering
+                addProceduralPlaceholder(slot, group);
+
+                registerSlot(slot, group);
+                root.add(group);
+            });
+
+            scene.add(root);
+        }
+
+        function addProceduralPlaceholder(slot, group) {
+            switch (slot) {
+                case 'HELMET': {
+                    const helmetMesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), pbrMaterials.primary);
+                    helmetMesh.position.set(0, 2.30, 0.04);
+                    helmetMesh.castShadow = true;
+                    helmetMesh.receiveShadow = true;
+                    group.add(helmetMesh);
+
+                    const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.04, 0.06), pbrMaterials.lenses);
+                    visorMesh.position.set(0, 2.30, 0.14);
+                    group.add(visorMesh);
+                    break;
+                }
+                case 'CHEST': {
+                    const chestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.48, 0.32), pbrMaterials.primary);
+                    chestMesh.position.set(0, 1.80, 0.0);
+                    chestMesh.castShadow = true;
+                    chestMesh.receiveShadow = true;
+                    group.add(chestMesh);
+
+                    const aquila = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.05), pbrMaterials.trim);
+                    aquila.position.set(0, 1.88, 0.17);
+                    group.add(aquila);
+                    break;
+                }
+                case 'BACKPACK': {
+                    const packMesh = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.50, 0.24), pbrMaterials.primary);
+                    packMesh.position.set(0, 1.85, -0.28);
+                    packMesh.castShadow = true;
+                    group.add(packMesh);
+
+                    const ventL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), pbrMaterials.trim);
+                    ventL.position.set(0.24, 2.08, -0.28);
+                    group.add(ventL);
+
+                    const ventR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), pbrMaterials.trim);
+                    ventR.position.set(-0.24, 2.08, -0.28);
+                    group.add(ventR);
+                    break;
+                }
+                case 'LEFT_PAULDRON': {
+                    const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.20, 16, 16, 0, Math.PI), pbrMaterials.primary);
+                    pauldron.rotation.y = Math.PI / 2;
+                    pauldron.position.set(0.34, 1.82, 0.0);
+                    pauldron.castShadow = true;
+                    group.add(pauldron);
+                    break;
+                }
+                case 'RIGHT_PAULDRON': {
+                    const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.20, 16, 16, 0, Math.PI), pbrMaterials.primary);
+                    pauldron.rotation.y = -Math.PI / 2;
+                    pauldron.position.set(-0.34, 1.82, 0.0);
+                    pauldron.castShadow = true;
+                    group.add(pauldron);
+                    break;
+                }
+                case 'LEFT_GAUNTLET': {
+                    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.38, 12), pbrMaterials.primary);
+                    arm.position.set(0.46, 1.50, 0.06);
+                    arm.castShadow = true;
+                    group.add(arm);
+                    break;
+                }
+                case 'RIGHT_GAUNTLET': {
+                    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.38, 12), pbrMaterials.primary);
+                    arm.position.set(-0.46, 1.50, 0.06);
+                    arm.castShadow = true;
+                    group.add(arm);
+                    break;
+                }
+                case 'LEFT_GREAVE': {
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.50, 12), pbrMaterials.primary);
+                    leg.position.set(0.18, 0.65, 0.0);
+                    leg.castShadow = true;
+                    leg.receiveShadow = true;
+                    group.add(leg);
+
+                    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.28), pbrMaterials.primary);
+                    boot.position.set(0.18, 0.35, 0.08);
+                    boot.castShadow = true;
+                    group.add(boot);
+                    break;
+                }
+                case 'RIGHT_GREAVE': {
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.50, 12), pbrMaterials.primary);
+                    leg.position.set(-0.18, 0.65, 0.0);
+                    leg.castShadow = true;
+                    leg.receiveShadow = true;
+                    group.add(leg);
+
+                    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.28), pbrMaterials.primary);
+                    boot.position.set(-0.18, 0.35, 0.08);
+                    boot.castShadow = true;
+                    group.add(boot);
+                    break;
+                }
+            }
+        }
+
+        function registerSlot(slotName, group) {
+            armorMeshMap.set(slotName, group);
+            group.traverse(child => {
+                if (child.isMesh) {
+                    child.userData.slot = slotName;
+                }
+            });
+        }
+
+        function selectSlot(slotName) {
+            state.currentSlot = slotName;
+            document.getElementById('selected-slot-badge').innerText = slotName.replace('_', ' ');
+            if (state.isSolo) {
+                applySoloVisibility();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Paint Studio & Interaction Core
+        // -------------------------------------------------------------
+        function setPaintTool(toolName) {
+            state.paintTool = toolName;
+            document.querySelectorAll('.btn-paint-tool').forEach(btn => {
+                btn.classList.toggle('active', btn.id === 'tool-' + toolName);
+            });
+
+            const ctrlGroup = document.getElementById('paint-controls');
+            const hintBox = document.getElementById('hint-box');
+            if (toolName === 'orbit') {
+                ctrlGroup.style.display = 'none';
+                controls.enabled = true;
+                renderer.domElement.style.cursor = 'default';
+                hintBox.innerText = 'Left Drag: Orbit | Right Drag: Pan | Scroll: Zoom | Click part to select';
+            } else {
+                ctrlGroup.style.display = 'flex';
+                controls.enabled = false;
+                renderer.domElement.style.cursor = 'crosshair';
+                if (toolName === 'brush') {
+                    hintBox.innerText = 'Soft Brush Active: Click or drag on 3D mesh to paint vertex colors';
+                } else if (toolName === 'fill') {
+                    hintBox.innerText = 'Crease Fill Active: Click armor plate to flood fill within crease boundary';
+                } else if (toolName === 'eraser') {
+                    hintBox.innerText = 'Eraser Active: Click or drag on mesh to erase paint back to base armor';
+                }
+            }
+        }
+
+        function updateBrushParams() {
+            const radInput = document.getElementById('brush-radius');
+            const softInput = document.getElementById('brush-softness');
+            const creaseInput = document.getElementById('crease-angle');
+
+            if (radInput) {
+                state.brushRadius = parseFloat(radInput.value);
+                document.getElementById('brush-radius-val').innerText = state.brushRadius.toFixed(2) + 'm';
+            }
+            if (softInput) {
+                state.brushSoftness = parseFloat(softInput.value);
+                document.getElementById('brush-softness-val').innerText = Math.round(state.brushSoftness * 100) + '%';
+            }
+            if (creaseInput) {
+                state.creaseAngle = parseFloat(creaseInput.value);
+                document.getElementById('crease-angle-val').innerText = Math.round(state.creaseAngle) + '°';
+            }
+        }
+
+        function onPaintColorPickerChange(hex) {
+            state.activePaintColor.set(hex);
+        }
+
+        function setPaintColorHex(hex) {
+            if (!hex) return;
+            state.activePaintColor.set(hex);
+            const picker = document.getElementById('paint-color-picker');
+            if (picker) {
+                picker.value = hex;
+            }
+        }
+
+        function ensureVertexColors(mesh) {
+            if (!mesh || !mesh.geometry) return false;
+            let geom = mesh.geometry;
+            if (geom.index !== null) {
+                mesh.geometry = geom.toNonIndexed();
+                geom = mesh.geometry;
+            }
+            if (!geom.attributes.color) {
+                const count = geom.attributes.position.count;
+                const colors = new Float32Array(count * 3);
+                colors.fill(1.0); // Default white
+                geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            }
+            if (mesh.material && !mesh.material.vertexColors) {
+                mesh.material.vertexColors = true;
+                mesh.material.needsUpdate = true;
+            }
+            return true;
+        }
+
+        function applySoftBrush(mesh, point, radius, softness, r, g, b) {
+            if (!ensureVertexColors(mesh)) return;
+            const geom = mesh.geometry;
+            const pos = geom.attributes.position;
+            const col = geom.attributes.color;
+            const count = pos.count;
+
+            const localHit = mesh.worldToLocal(point.clone());
+            const hx = localHit.x, hy = localHit.y, hz = localHit.z;
+            const rSq = radius * radius;
+            const posArr = pos.array;
+            const colArr = col.array;
+
+            let modified = false;
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                const dx = posArr[i3] - hx;
+                const dy = posArr[i3 + 1] - hy;
+                const dz = posArr[i3 + 2] - hz;
+                const dSq = dx * dx + dy * dy + dz * dz;
+
+                if (dSq < rSq) {
+                    const dist = Math.sqrt(dSq);
+                    let factor = 1.0 - (dist / radius);
+                    factor = Math.pow(factor, 1.0 + (1.0 - softness) * 2.5);
+                    factor = Math.min(Math.max(factor, 0.0), 1.0);
+
+                    colArr[i3] = colArr[i3] + (r - colArr[i3]) * factor;
+                    colArr[i3 + 1] = colArr[i3 + 1] + (g - colArr[i3 + 1]) * factor;
+                    colArr[i3 + 2] = colArr[i3 + 2] + (b - colArr[i3 + 2]) * factor;
+                    modified = true;
+                }
+            }
+
+            if (modified) {
+                col.needsUpdate = true;
+            }
+        }
+
+        function buildMeshAdjacency(geom) {
+            if (geom.userData.adjCache) {
+                return geom.userData.adjCache;
+            }
+
+            const pos = geom.attributes.position;
+            const numVerts = pos.count;
+            const numTris = Math.floor(numVerts / 3);
+
+            // Quantize spatial positions to weld vertex seams (0.1mm resolution)
+            const vertKeys = new Int32Array(numVerts);
+            const keyMap = new Map();
+            let uniqueId = 0;
+
+            for (let i = 0; i < numVerts; i++) {
+                const x = Math.round(pos.getX(i) * 10000);
+                const y = Math.round(pos.getY(i) * 10000);
+                const z = Math.round(pos.getZ(i) * 10000);
+                const skey = x + '_' + y + '_' + z;
+                let id = keyMap.get(skey);
+                if (id === undefined) {
+                    id = uniqueId++;
+                    keyMap.set(skey, id);
+                }
+                vertKeys[i] = id;
+            }
+
+            // Precompute triangle face normals
+            const triNormals = new Float32Array(numTris * 3);
+            const pA = new THREE.Vector3(), pB = new THREE.Vector3(), pC = new THREE.Vector3();
+            const cb = new THREE.Vector3(), ab = new THREE.Vector3(), n = new THREE.Vector3();
+
+            for (let t = 0; t < numTris; t++) {
+                const i3 = t * 3;
+                pA.fromBufferAttribute(pos, i3);
+                pB.fromBufferAttribute(pos, i3 + 1);
+                pC.fromBufferAttribute(pos, i3 + 2);
+
+                cb.subVectors(pC, pB);
+                ab.subVectors(pA, pB);
+                n.crossVectors(cb, ab).normalize();
+
+                triNormals[t * 3] = n.x;
+                triNormals[t * 3 + 1] = n.y;
+                triNormals[t * 3 + 2] = n.z;
+            }
+
+            // Build edge to triangles map
+            const edgeToTris = new Map();
+            function addEdge(v1, v2, tri) {
+                const k = v1 < v2 ? (v1 * 2000003 + v2) : (v2 * 2000003 + v1);
+                let list = edgeToTris.get(k);
+                if (!list) {
+                    list = [];
+                    edgeToTris.set(k, list);
+                }
+                list.push(tri);
+            }
+
+            for (let t = 0; t < numTris; t++) {
+                const i3 = t * 3;
+                addEdge(vertKeys[i3], vertKeys[i3 + 1], t);
+                addEdge(vertKeys[i3 + 1], vertKeys[i3 + 2], t);
+                addEdge(vertKeys[i3 + 2], vertKeys[i3], t);
+            }
+
+            const triNeighbors = [];
+            for (let t = 0; t < numTris; t++) {
+                triNeighbors.push([]);
+            }
+
+            for (let [, tris] of edgeToTris.entries()) {
+                if (tris.length === 2) {
+                    triNeighbors[tris[0]].push(tris[1]);
+                    triNeighbors[tris[1]].push(tris[0]);
+                }
+            }
+
+            const cache = { numTris, triNormals, triNeighbors, edgeToTris, vertKeys };
+            geom.userData.adjCache = cache;
+            return cache;
+        }
+
+        function floodFillCreaseAngle(mesh, seedTri, creaseDeg, fillR, fillG, fillB) {
+            if (!ensureVertexColors(mesh)) return;
+            const geom = mesh.geometry;
+            const adj = buildMeshAdjacency(geom);
+            const { numTris, triNormals, triNeighbors } = adj;
+            if (seedTri < 0 || seedTri >= numTris) return;
+
+            const minCos = Math.cos(creaseDeg * Math.PI / 180.0);
+            const visited = new Uint8Array(numTris);
+            const inRegion = [];
+            const queue = [seedTri];
+            visited[seedTri] = 1;
+
+            // Crease-angle BFS flood fill
+            let head = 0;
+            while (head < queue.length) {
+                const curr = queue[head++];
+                inRegion.push(curr);
+
+                const cx = triNormals[curr * 3];
+                const cy = triNormals[curr * 3 + 1];
+                const cz = triNormals[curr * 3 + 2];
+
+                const nbrs = triNeighbors[curr];
+                for (let i = 0; i < nbrs.length; i++) {
+                    const nb = nbrs[i];
+                    if (visited[nb]) continue;
+
+                    const nx = triNormals[nb * 3];
+                    const ny = triNormals[nb * 3 + 1];
+                    const nz = triNormals[nb * 3 + 2];
+
+                    const dot = cx * nx + cy * ny + cz * nz;
+                    if (dot >= minCos) {
+                        visited[nb] = 1;
+                        queue.push(nb);
+                    }
+                }
+            }
+
+            // Fill all vertex colors in visited region
+            const colors = geom.attributes.color.array;
+            for (let k = 0; k < inRegion.length; k++) {
+                const t = inRegion[k];
+                const base = t * 9;
+                colors[base] = fillR;
+                colors[base + 1] = fillG;
+                colors[base + 2] = fillB;
+                colors[base + 3] = fillR;
+                colors[base + 4] = fillG;
+                colors[base + 5] = fillB;
+                colors[base + 6] = fillR;
+                colors[base + 7] = fillG;
+                colors[base + 8] = fillB;
+            }
+
+            geom.attributes.color.needsUpdate = true;
+        }
+
+        window.clearAllPaint = function () {
+            armorMeshMap.forEach(group => {
+                group.traverse(child => {
+                    if (child.isMesh && child.geometry && child.geometry.attributes.color) {
+                        const arr = child.geometry.attributes.color.array;
+                        arr.fill(1.0);
+                        child.geometry.attributes.color.needsUpdate = true;
+                    }
+                });
+            });
+        };
+
+        // Pointer event handlers
+        function onPointerDown(e) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (state.paintTool === 'orbit') {
+                for (let hit of intersects) {
+                    let curr = hit.object;
+                    while (curr && !curr.userData.slot && curr.parent) {
+                        curr = curr.parent;
+                    }
+                    if (curr && curr.userData.slot) {
+                        selectSlot(curr.userData.slot);
+                        if (window.chrome && window.chrome.webview) {
+                            window.chrome.webview.postMessage({
+                                action: 'selectSlot',
+                                slot: curr.userData.slot
+                            });
+                        }
+                        break;
+                    }
+                }
+            } else {
+                isPainting = true;
+                for (let hit of intersects) {
+                    if (hit.object && hit.object.isMesh && hit.object.geometry) {
+                        if (state.paintTool === 'brush') {
+                            applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness,
+                                           state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b);
+                        } else if (state.paintTool === 'eraser') {
+                            applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness, 1.0, 1.0, 1.0);
+                        } else if (state.paintTool === 'fill') {
+                            if (hit.faceIndex !== undefined) {
+                                floodFillCreaseAngle(hit.object, hit.faceIndex, state.creaseAngle,
+                                                     state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!isPainting || state.paintTool === 'orbit' || state.paintTool === 'fill') return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            for (let hit of intersects) {
+                if (hit.object && hit.object.isMesh && hit.object.geometry) {
+                    if (state.paintTool === 'brush') {
+                        applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness,
+                                       state.activePaintColor.r, state.activePaintColor.g, state.activePaintColor.b);
+                    } else if (state.paintTool === 'eraser') {
+                        applySoftBrush(hit.object, hit.point, state.brushRadius, state.brushSoftness, 1.0, 1.0, 1.0);
+                    }
+                    break;
+                }
+            }
+        }
+
+        function onPointerUp() {
+            isPainting = false;
+        }
+
+        // Camera Views
+        function focusCamera(target) {
+            document.querySelectorAll('.btn-nav').forEach(b => {
+                const bText = b.innerText.toLowerCase();
+                const tText = target.replace('_', ' ').toLowerCase();
+                if ((target === 'full' && bText.includes('full')) ||
+                    (target === 'helmet' && bText.includes('helmet')) ||
+                    (target === 'chest' && bText.includes('cuirass')) ||
+                    (target === 'left_pauldron' && bText.includes('l. shoulder')) ||
+                    (target === 'right_pauldron' && bText.includes('r. shoulder')) ||
+                    (target === 'backpack' && bText.includes('backpack')) ||
+                    (target === 'arms' && bText.includes('arms')) ||
+                    (target === 'legs' && bText.includes('legs'))) {
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+            });
+
+            switch (target) {
+                case 'helmet':
+                    tweenCamera([0, 2.50, 0.95], [0, 2.42, 0.02]);
+                    selectSlot('HELMET');
+                    break;
+                case 'left_pauldron':
+                    tweenCamera([1.05, 2.30, 0.85], [0.50, 2.15, 0]);
+                    selectSlot('LEFT_PAULDRON');
+                    break;
+                case 'right_pauldron':
+                    tweenCamera([-1.05, 2.30, 0.85], [-0.50, 2.15, 0]);
+                    selectSlot('RIGHT_PAULDRON');
+                    break;
+                case 'chest':
+                    tweenCamera([0, 1.85, 1.35], [0, 1.65, 0.05]);
+                    selectSlot('CHEST');
+                    break;
+                case 'backpack':
+                    tweenCamera([0, 2.25, -1.55], [0, 2.14, -0.55]);
+                    selectSlot('BACKPACK');
+                    break;
+                case 'arms':
+                    tweenCamera([0, 1.85, 1.55], [0, 1.75, 0.20]);
+                    break;
+                case 'legs':
+                    tweenCamera([0, 0.95, 1.65], [0, 0.55, 0]);
+                    break;
+                case 'full':
+                default:
+                    tweenCamera([0, 1.65, 3.4], [0, 1.35, 0]);
+                    selectSlot('FULL ARMOR');
+                    break;
+            }
+        }
+
+        function resetCamera() {
+            focusCamera('full');
+        }
+
+        function tweenCamera(pos, target) {
+            camera.position.set(pos[0], pos[1], pos[2]);
+            controls.target.set(target[0], target[1], target[2]);
+            controls.update();
+        }
+
+        // Action Controls
+        function toggleTurntable() {
+            state.isTurntable = !state.isTurntable;
+            controls.autoRotate = state.isTurntable;
+            controls.autoRotateSpeed = 2.2;
+            const btn = document.getElementById('btn-turntable');
+            btn.innerHTML = state.isTurntable ? '⟳ Turntable (On)' : '⟳ Turntable';
+            btn.classList.toggle('active', state.isTurntable);
+        }
+
+        function toggleWireframe() {
+            state.isWireframe = !state.isWireframe;
+            Object.values(pbrMaterials).forEach(mat => {
+                mat.wireframe = state.isWireframe;
+            });
+            const btn = document.getElementById('btn-wireframe');
+            btn.innerHTML = state.isWireframe ? '◬ Wireframe (On)' : '◬ Wireframe';
+            btn.classList.toggle('active', state.isWireframe);
+        }
+
+        function toggleSoloPart() {
+            state.isSolo = !state.isSolo;
+            const btn = document.getElementById('btn-solo');
+            const banner = document.getElementById('solo-banner');
+            btn.innerHTML = state.isSolo ? '◎ Isolate (On)' : '◎ Isolate';
+            btn.classList.toggle('active', state.isSolo);
+            banner.style.display = state.isSolo ? 'block' : 'none';
+            applySoloVisibility();
+        }
+
+        function applySoloVisibility() {
+            armorMeshMap.forEach((group, slot) => {
+                if (!state.isSolo || state.currentSlot === 'FULL ARMOR') {
+                    group.visible = true;
+                } else {
+                    group.visible = (slot === state.currentSlot);
+                }
+            });
+        }
+
+        function toggleLightingMode() {
+            state.lightingMode = (state.lightingMode === 'forge') ? 'studio' : 'forge';
+            const btn = document.getElementById('btn-lighting');
+            btn.innerHTML = (state.lightingMode === 'forge') ? '☼ Forge Light' : '☼ Studio Light';
+
+            if (state.lightingMode === 'forge') {
+                scene.background.setHex(0x0A0C10);
+                scene.fog.color.setHex(0x0A0C10);
+                lights.ambient.color.setHex(0xEAEFFF);
+                lights.ambient.intensity = 0.55;
+                lights.key.color.setHex(0xFFE8D0);
+                lights.key.intensity = 1.35;
+                lights.rim.color.setHex(0xFFD580);
+                lights.rim.intensity = 1.15;
+            } else {
+                scene.background.setHex(0x141822);
+                scene.fog.color.setHex(0x141822);
+                lights.ambient.color.setHex(0xFFFFFF);
+                lights.ambient.intensity = 0.85;
+                lights.key.color.setHex(0xFFFFFF);
+                lights.key.intensity = 1.2;
+                lights.rim.color.setHex(0xE0EEFF);
+                lights.rim.intensity = 0.8;
+            }
+        }
+
+        function takeSnapshot() {
+            try {
+                renderer.render(scene, camera);
+                const dataUrl = renderer.domElement.toDataURL('image/png');
+                if (window.chrome && window.chrome.webview) {
+                    window.chrome.webview.postMessage({
+                        action: 'screenshotCaptured',
+                        dataUrl: dataUrl
+                    });
+                }
+                // Trigger download in browser
+                const a = document.createElement('a');
+                a.download = `Astartes_Armour_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+                a.href = dataUrl;
+                a.click();
+            } catch (err) {
+                console.error("Failed to capture snapshot", err);
+            }
+        }
+
+        // Canonical dimensions and anatomical socket anchors (Astartes Metric Reference)
+        const CANONICAL_SLOTS = {
+            'HELMET': { size: 0.35, anchor: [0, 2.42, 0.01] },
+            'HELMET_LENSES': { size: 0.35, anchor: [0, 2.42, 0.01] },
+            'CHEST': { size: 0.95, anchor: [0, 1.75, 0.05] },
+            'BACKPACK': { size: 0.85, anchor: [0, 2.14, -0.58] },
+            'LEFT_PAULDRON': { size: 0.45, anchor: [0.48, 2.15, 0.0] },
+            'RIGHT_PAULDRON': { size: 0.45, anchor: [-0.48, 2.15, 0.0] },
+            'LEFT_GAUNTLET': { size: 0.45, anchor: [0.75, 1.80, 0.18] },
+            'RIGHT_GAUNTLET': { size: 0.45, anchor: [-0.75, 1.80, 0.18] },
+            'LEFT_GREAVE': { size: 0.75, anchor: [0.36, 0.52, 0.0] },
+            'RIGHT_GREAVE': { size: 0.75, anchor: [-0.36, 0.52, 0.0] },
+            'ANTENNA': { size: 0.25, anchor: [0.15, 2.65, 0.0] }
+        };
+
+        const customModelDataMap = new Map();
+        let currentTransformSlot = 'HELMET';
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function applySlotMaterialsToMesh(obj, normSlot) {
+            obj.traverse(child => {
+                if (child.isMesh) {
+                    if (child.geometry && !child.geometry.attributes.normal) {
+                        child.geometry.computeVertexNormals();
+                    }
+                    const mName = (child.name || '').toLowerCase();
+                    if (mName.includes('lens') || mName.includes('glass') || mName.includes('eye')) {
+                        child.material = pbrMaterials.lenses;
+                    } else if (mName.includes('badge') || mName.includes('aquila') || mName.includes('trim') || 
+                               mName.includes('skull') || mName.includes('gold') || mName.includes('crux') ||
+                               mName.includes('cap_01') || mName.includes('plate_01') || mName.includes('decal')) {
+                        child.material = pbrMaterials.trim;
+                    } else if (mName.includes('neck') || mName.includes('joint') || mName.includes('undersuit') || 
+                               mName.includes('tube') || mName.includes('cable') || mName.includes('hose') ||
+                               mName.includes('torso_base')) {
+                        child.material = pbrMaterials.joints;
+                    } else if (mName.includes('bag') || mName.includes('pouch') || mName.includes('leather')) {
+                        child.material = pbrMaterials.leather;
+                    } else if (mName.includes('cloth') || mName.includes('tabard') || mName.includes('seal') || 
+                               mName.includes('parchment')) {
+                        child.material = pbrMaterials.cloth;
+                    } else {
+                        child.material = getOrCreateSlotMaterial(normSlot);
+                    }
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    child.userData.slot = normSlot;
+                    child.visible = true;
+                }
+            });
+        }
+
+        function attachCustomMeshToSlot(rawObj, normSlot, fileName, format) {
+            const group = armorMeshMap.get(normSlot);
+            if (!group) return;
+
+            applySlotMaterialsToMesh(rawObj, normSlot);
+
+            const bbox = new THREE.Box3().setFromObject(rawObj);
+            const sz = new THREE.Vector3();
+            bbox.getSize(sz);
+            const center = new THREE.Vector3();
+            bbox.getCenter(center);
+
+            // Center raw geometry at origin
+            rawObj.position.sub(center);
+
+            const slotConfig = CANONICAL_SLOTS[normSlot] || { size: 0.5, anchor: [0, 1.5, 0] };
+            const maxDim = Math.max(sz.x, sz.y, sz.z);
+            const baseScale = maxDim > 0.001 ? (slotConfig.size / maxDim) : 1.0;
+
+            let customContainer = group.getObjectByName('customMeshContainer');
+            if (!customContainer) {
+                customContainer = new THREE.Group();
+                customContainer.name = 'customMeshContainer';
+                group.add(customContainer);
+            }
+            while (customContainer.children.length > 0) {
+                customContainer.remove(customContainer.children[0]);
+            }
+
+            const pivot = new THREE.Group();
+            pivot.name = 'customPivot_' + normSlot;
+            pivot.position.set(slotConfig.anchor[0], slotConfig.anchor[1], slotConfig.anchor[2]);
+            pivot.scale.setScalar(baseScale);
+            pivot.add(rawObj);
+
+            customContainer.add(pivot);
+
+            for (let i = 0; i < group.children.length; i++) {
+                const c = group.children[i];
+                if (c !== customContainer) {
+                    c.visible = false;
+                }
+            }
+            customContainer.visible = true;
+
+            const record = {
+                rawObj: rawObj,
+                pivot: pivot,
+                baseScale: baseScale,
+                userScale: 1.0,
+                offX: 0.0,
+                offY: 0.0,
+                offZ: 0.0,
+                yaw: 0.0,
+                anchor: [...slotConfig.anchor],
+                fileName: fileName,
+                format: format,
+                slot: normSlot
+            };
+            customModelDataMap.set(normSlot, record);
+
+            if (state.isSolo) {
+                applySoloVisibility();
+            }
+
+            openTransformPanel(normSlot);
+        }
+
+        window.loadCustomModel = function (slotName, format, payload, fileName) {
+            try {
+                if (!payload) return;
+                const normSlot = (slotName || 'HELMET').toUpperCase();
+                const fmt = (format || 'obj').toLowerCase();
+
+                if (fmt === 'obj') {
+                    const text = typeof payload === 'string' ? payload : '';
+                    if (!text || text.length < 20) return;
+                    const loader = new THREE.OBJLoader();
+                    const obj = loader.parse(text);
+                    attachCustomMeshToSlot(obj, normSlot, fileName || 'custom_model', 'obj');
+                } else if (fmt === 'stl') {
+                    const loader = new THREE.STLLoader();
+                    let geometry;
+                    if (typeof payload === 'string' && (payload.startsWith('solid ') || payload.startsWith('solid\n'))) {
+                        geometry = loader.parse(payload);
+                    } else {
+                        const buffer = typeof payload === 'string' ? base64ToArrayBuffer(payload) : payload;
+                        geometry = loader.parse(buffer);
+                    }
+                    geometry.computeVertexNormals();
+                    const mesh = new THREE.Mesh(geometry, getOrCreateSlotMaterial(normSlot));
+                    const group = new THREE.Group();
+                    group.add(mesh);
+                    attachCustomMeshToSlot(group, normSlot, fileName || 'custom_model', 'stl');
+                } else if (fmt === 'gltf' || fmt === 'glb') {
+                    const loader = new THREE.GLTFLoader();
+                    const data = (fmt === 'glb' || (typeof payload === 'string' && !payload.trim().startsWith('{')))
+                        ? base64ToArrayBuffer(payload)
+                        : payload;
+                    loader.parse(data, '', function (gltf) {
+                        const root = gltf.scene || (gltf.scenes && gltf.scenes[0]) || new THREE.Group();
+                        attachCustomMeshToSlot(root, normSlot, fileName || 'custom_model', fmt);
+                    }, function (err) {
+                        console.error("GLTF/GLB parse error:", err);
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load custom model for slot " + slotName, err);
+            }
+        };
+
+        // Backward compatibility
+        window.loadCustomObj = function (slotName, objText) {
+            window.loadCustomModel(slotName, 'obj', objText, 'custom_mesh');
+        };
+
+        function openTransformPanel(slot) {
+            currentTransformSlot = slot;
+            const panel = document.getElementById('custom-transform-panel');
+            if (!panel) return;
+            const slotSelect = document.getElementById('custom-slot-select');
+            if (slotSelect) slotSelect.value = slot;
+
+            const rec = customModelDataMap.get(slot);
+            if (rec) {
+                document.getElementById('custom-scale').value = rec.userScale;
+                document.getElementById('custom-scale-val').textContent = rec.userScale.toFixed(2) + 'x';
+                document.getElementById('custom-offset-x').value = rec.offX;
+                document.getElementById('custom-offset-x-val').textContent = rec.offX.toFixed(2) + 'm';
+                document.getElementById('custom-offset-y').value = rec.offY;
+                document.getElementById('custom-offset-y-val').textContent = rec.offY.toFixed(2) + 'm';
+                document.getElementById('custom-offset-z').value = rec.offZ;
+                document.getElementById('custom-offset-z-val').textContent = rec.offZ.toFixed(2) + 'm';
+                document.getElementById('custom-yaw').value = rec.yaw;
+                document.getElementById('custom-yaw-val').textContent = rec.yaw + '°';
+            }
+            panel.style.display = 'flex';
+        }
+
+        function toggleTransformPanel() {
+            const panel = document.getElementById('custom-transform-panel');
+            if (panel) {
+                panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'flex' : 'none';
+            }
+        }
+
+        function updateCustomTransform() {
+            const rec = customModelDataMap.get(currentTransformSlot);
+            if (!rec || !rec.pivot) return;
+
+            const uScale = parseFloat(document.getElementById('custom-scale').value) || 1.0;
+            const offX = parseFloat(document.getElementById('custom-offset-x').value) || 0.0;
+            const offY = parseFloat(document.getElementById('custom-offset-y').value) || 0.0;
+            const offZ = parseFloat(document.getElementById('custom-offset-z').value) || 0.0;
+            const yawDeg = parseFloat(document.getElementById('custom-yaw').value) || 0.0;
+
+            rec.userScale = uScale;
+            rec.offX = offX;
+            rec.offY = offY;
+            rec.offZ = offZ;
+            rec.yaw = yawDeg;
+
+            document.getElementById('custom-scale-val').textContent = uScale.toFixed(2) + 'x';
+            document.getElementById('custom-offset-x-val').textContent = offX.toFixed(2) + 'm';
+            document.getElementById('custom-offset-y-val').textContent = offY.toFixed(2) + 'm';
+            document.getElementById('custom-offset-z-val').textContent = offZ.toFixed(2) + 'm';
+            document.getElementById('custom-yaw-val').textContent = yawDeg + '°';
+
+            rec.pivot.scale.setScalar(rec.baseScale * uScale);
+            rec.pivot.position.set(rec.anchor[0] + offX, rec.anchor[1] + offY, rec.anchor[2] + offZ);
+            rec.pivot.rotation.y = (yawDeg * Math.PI) / 180;
+        }
+
+        function resetCustomTransform() {
+            const rec = customModelDataMap.get(currentTransformSlot);
+            if (!rec) return;
+            rec.userScale = 1.0;
+            rec.offX = 0.0;
+            rec.offY = 0.0;
+            rec.offZ = 0.0;
+            rec.yaw = 0.0;
+            openTransformPanel(currentTransformSlot);
+            updateCustomTransform();
+        }
+
+        function removeCurrentCustomMesh() {
+            const rec = customModelDataMap.get(currentTransformSlot);
+            if (!rec) return;
+            window.clearSlotMesh(currentTransformSlot);
+            customModelDataMap.delete(currentTransformSlot);
+            toggleTransformPanel();
+        }
+
+        function onCustomSlotChange(newSlot) {
+            if (newSlot === currentTransformSlot) return;
+            const rec = customModelDataMap.get(currentTransformSlot);
+            if (rec) {
+                window.clearSlotMesh(currentTransformSlot);
+                customModelDataMap.delete(currentTransformSlot);
+                attachCustomMeshToSlot(rec.rawObj, newSlot, rec.fileName, rec.format);
+            } else {
+                currentTransformSlot = newSlot;
+            }
+        }
+
+        // Host Messaging API
+        function getOrCreateSlotMaterial(normSlot) {
+            if (slotMaterials.has(normSlot)) {
+                return slotMaterials.get(normSlot);
+            }
+            const mat = pbrMaterials.primary.clone();
+            slotMaterials.set(normSlot, mat);
+            if (slotOverrides.has(normSlot)) {
+                const ovr = slotOverrides.get(normSlot);
+                mat.color.setHex(ovr.color);
+                mat.metalness = ovr.metalness;
+                mat.roughness = ovr.roughness;
+            }
+            return mat;
+        }
+
+        window.setSlotColor = function (slotName, r, g, b, isMetallic, specR, specG, specB) {
+            const normSlot = slotName.toUpperCase();
+            const hexColor = (r << 16) | (g << 8) | b;
+            const metalness = isMetallic ? 0.78 : 0.15;
+            const roughness = isMetallic ? 0.26 : 0.35;
+
+            slotOverrides.set(normSlot, { color: hexColor, metalness, roughness });
+            const mat = getOrCreateSlotMaterial(normSlot);
+            mat.color.setHex(hexColor);
+            mat.metalness = metalness;
+            mat.roughness = roughness;
+            mat.needsUpdate = true;
+        };
+
+        window.clearSlotColor = function (slotName) {
+            const normSlot = slotName.toUpperCase();
+            slotOverrides.delete(normSlot);
+            if (slotMaterials.has(normSlot)) {
+                const mat = slotMaterials.get(normSlot);
+                mat.color.copy(pbrMaterials.primary.color);
+                mat.metalness = pbrMaterials.primary.metalness;
+                mat.roughness = pbrMaterials.primary.roughness;
+                mat.needsUpdate = true;
+            }
+        };
+
+        window.clearAllSlotColors = function () {
+            slotOverrides.clear();
+            for (let [, mat] of slotMaterials.entries()) {
+                mat.color.copy(pbrMaterials.primary.color);
+                mat.metalness = pbrMaterials.primary.metalness;
+                mat.roughness = pbrMaterials.primary.roughness;
+                mat.needsUpdate = true;
+            }
+        };
+
+        window.setArmorColor = function (r, g, b, isMetallic, specR, specG, specB) {
+            state.primaryColor = (r << 16) | (g << 8) | b;
+            state.secondaryColor = state.primaryColor;
+            state.isMetallic = !!isMetallic;
+            state.metalness = state.isMetallic ? 0.78 : 0.15;
+            state.roughness = state.isMetallic ? 0.26 : 0.35;
+
+            pbrMaterials.primary.color.setHex(state.primaryColor);
+            pbrMaterials.primary.metalness = state.metalness;
+            pbrMaterials.primary.roughness = state.roughness;
+            pbrMaterials.primary.needsUpdate = true;
+
+            pbrMaterials.secondary.color.setHex(state.secondaryColor);
+            pbrMaterials.secondary.metalness = state.metalness;
+            pbrMaterials.secondary.roughness = state.roughness;
+            pbrMaterials.secondary.needsUpdate = true;
+
+            // Propagate global color to any slots without a manual override
+            for (let [slot, mat] of slotMaterials.entries()) {
+                if (!slotOverrides.has(slot)) {
+                    mat.color.setHex(state.primaryColor);
+                    mat.metalness = state.metalness;
+                    mat.roughness = state.roughness;
+                    mat.needsUpdate = true;
+                }
+            }
+        };
+
+        window.setTrimColor = function (r, g, b, isMetallic) {
+            state.trimColor = (r << 16) | (g << 8) | b;
+            pbrMaterials.trim.color.setHex(state.trimColor);
+            pbrMaterials.trim.metalness = isMetallic ? 0.90 : 0.25;
+            pbrMaterials.trim.needsUpdate = true;
+        };
+
+        window.clearSlotMesh = function (slotName) {
+            const normSlot = slotName.toUpperCase();
+            const group = armorMeshMap.get(normSlot);
+            if (group) {
+                const customContainer = group.getObjectByName('customMeshContainer');
+                if (customContainer) {
+                    while (customContainer.children.length > 0) {
+                        customContainer.remove(customContainer.children[0]);
+                    }
+                    customContainer.visible = false;
+                }
+                // If it's an accessory slot, also hide procedural placeholder
+                if (['VANITY', 'CLOTH', 'COAT', 'HALO', 'ANTENNA', 'HELMET_LENSES'].includes(normSlot)) {
+                    for (let i = 0; i < group.children.length; i++) {
+                        if (group.children[i] !== customContainer) {
+                            group.children[i].visible = false;
+                        }
+                    }
+                }
+            }
+        };
+
+        window.setSlotPiece = function (slotName, pieceUid) {
+            selectSlot(slotName);
+            if (!pieceUid || pieceUid.includes('empty') || pieceUid === 'none') {
+                window.clearSlotMesh(slotName);
+            }
+        };
+
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener('message', (event) => {
+                let msg = event.data;
+                if (!msg) return;
+                if (typeof msg === 'string') {
+                    try { msg = JSON.parse(msg); } catch (e) { }
+                }
+                if (msg.action === 'loadCustomModel') {
+                    window.loadCustomModel(msg.slot, msg.format, msg.base64 || msg.text || msg.data, msg.fileName);
+                } else if (msg.action === 'loadCustomObj') {
+                    window.loadCustomObj(msg.slot, msg.objData);
+                } else if (msg.action === 'clearSlotMesh') {
+                    window.clearSlotMesh(msg.slot);
+                } else if (msg.action === 'setColor') {
+                    window.setArmorColor(msg.r, msg.g, msg.b, msg.isMetallic, msg.specR, msg.specG, msg.specB);
+                } else if (msg.action === 'setSlotColor') {
+                    window.setSlotColor(msg.slot, msg.r, msg.g, msg.b, msg.isMetallic, msg.specR, msg.specG, msg.specB);
+                } else if (msg.action === 'clearSlotColor') {
+                    window.clearSlotColor(msg.slot);
+                } else if (msg.action === 'clearAllSlotColors') {
+                    window.clearAllSlotColors();
+                } else if (msg.action === 'setPaintColor') {
+                    setPaintColorHex(msg.hex);
+                } else if (msg.action === 'setSlotPiece') {
+                    window.setSlotPiece(msg.slot, msg.pieceUid);
+                } else if (msg.action === 'focusCamera') {
+                    focusCamera(msg.target);
+                }
+            });
+        }
+
+        function onWindowResize() {
+            if (!renderer || !camera) return;
+            const dims = getDimensions();
+            if (dims.width > 0 && dims.height > 0) {
+                camera.aspect = dims.width / dims.height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(dims.width, dims.height);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (controls) controls.update();
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
