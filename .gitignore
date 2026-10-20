@@ -1,7 +1,6 @@
 ## Visual Studio / .NET
 [Bb]in/
 [Oo]bj/
-dist/
 *.user
 *.suo
 *.userosscache

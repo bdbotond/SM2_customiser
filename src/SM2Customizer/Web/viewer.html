@@ -1560,9 +1560,62 @@
             }
         };
 
-        // Backward compatibility
+        // Game mesh loader: keeps native game-space coordinates (no auto-fit), so parts stay connected
         window.loadCustomObj = function (slotName, objText) {
-            window.loadCustomModel(slotName, 'obj', objText, 'custom_mesh');
+            try {
+                if (!objText || objText.length < 50) return;
+                const normSlot = slotName.toUpperCase();
+                const group = armorMeshMap.get(normSlot);
+                if (!group) return;
+
+                const obj = new THREE.OBJLoader().parse(objText);
+                obj.userData.slot = normSlot;
+                applySlotMaterialsToMesh(obj, normSlot);
+
+                const bbox = new THREE.Box3().setFromObject(obj);
+                const szX = bbox.max.x - bbox.min.x;
+                const szY = bbox.max.y - bbox.min.y;
+                const szZ = bbox.max.z - bbox.min.z;
+                if (szX > 4.0 || szY > 4.0 || szZ > 4.0) {
+                    console.warn("Rejecting oversized collision/sky geometry for slot " + slotName, szX, szY, szZ);
+                    return;
+                }
+
+                // Standalone mesh centered around the origin: move to slot socket
+                if (bbox.max.y < 0.6 && bbox.min.y > -0.6 && Math.abs(bbox.max.x) < 0.6) {
+                    if (normSlot === 'HELMET') {
+                        obj.position.set(0, 2.42, 0.01);
+                    } else if (normSlot === 'LEFT_PAULDRON') {
+                        obj.position.set(0.48, 2.15, 0.0);
+                    } else if (normSlot === 'RIGHT_PAULDRON') {
+                        obj.position.set(-0.48, 2.15, 0.0);
+                    } else if (normSlot === 'BACKPACK') {
+                        obj.position.set(0, 2.14, -0.58);
+                    }
+                }
+
+                let customContainer = group.getObjectByName('customMeshContainer');
+                if (!customContainer) {
+                    customContainer = new THREE.Group();
+                    customContainer.name = 'customMeshContainer';
+                    group.add(customContainer);
+                }
+                while (customContainer.children.length > 0) {
+                    customContainer.remove(customContainer.children[0]);
+                }
+                customContainer.add(obj);
+
+                for (let i = 0; i < group.children.length; i++) {
+                    const c = group.children[i];
+                    if (c !== customContainer) c.visible = false;
+                }
+                customContainer.visible = true;
+                customModelDataMap.delete(normSlot);
+
+                if (state.isSolo) applySoloVisibility();
+            } catch (err) {
+                console.error("Failed to load game mesh for slot " + slotName, err);
+            }
         };
 
         function openTransformPanel(slot) {
