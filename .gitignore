@@ -1,0 +1,33 @@
+## Visual Studio / .NET
+[Bb]in/
+[Oo]bj/
+dist/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+
+## Game Extracted Assets & Packages (Fan Tool / Copyright Clean)
+*.pak
+*.cache
+tests/extracted_game_assets/
+tests/*.obj
+
+## WebView2 Runtime User Data & Caches
+**/EBWebView/
+*.WebView2/
+
+## Build Packages & Logs
+*.zip
+*.log
+*.tmp
+*.bak
+.projectmem/
+.codegraph/
+
+## OS Files
+Thumbs.db
+Desktop.ini
+.DS_Store
